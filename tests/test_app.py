@@ -165,6 +165,12 @@ class TestUIStatics(unittest.TestCase):
         emoji = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F]")
         self.assertIsNone(emoji.search(src))
 
+    def test_no_dark_styles(self):
+        """回归：禁止深色主题/深色背景，图像区必须显式白底"""
+        self.assertNotIn("color_schemes", app.CSS)
+        self.assertNotIn("#0b1020", app.CSS)
+        self.assertIn(".image-frame", app.CSS)
+
     def test_bat_points_to_conda_env(self):
         with open(os.path.join(PROJECT_ROOT, "启动大屏.bat"), encoding="utf-8") as f:
             bat = f.read()

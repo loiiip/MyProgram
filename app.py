@@ -234,6 +234,37 @@ body, .gradio-container {
 }
 .fm-mini .k { font-size: 12px; color: #64748b; }
 .fm-mini .v { font-size: 20px; font-weight: 800; margin-top: 2px; }
+
+/* 图像展示区：显式白底白边，覆盖深色残留，去除黑边 */
+.image-frame, .image-container, .image-frame .image-container {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+}
+.image-frame img { border-radius: 12px !important; background: #ffffff !important; }
+
+/* 左侧操作按钮：突出、圆滑、有按压感 */
+.action-btn {
+  border-radius: 999px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease !important;
+}
+.action-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 10px 22px rgba(22, 163, 74, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  filter: brightness(1.05) !important;
+}
+.action-btn:active {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: 0 3px 8px rgba(22, 163, 74, 0.25) !important;
+}
+button.action-btn.secondary, .action-btn.secondary {
+  background: #ffffff !important;
+  color: #15803d !important;
+  border: 2px solid #16a34a !important;
+}
 """
 
 HEADER_HTML = """
@@ -380,9 +411,11 @@ with gr.Blocks(title="智麦鲜酵 · Vis-NIR 与 LGAKNet 智能监测系统") a
                     with gr.Group(elem_classes=["qc-card"]):
                         gr.HTML('<div class="qc-section-tag">STEP 1 · 样品光谱加载</div>')
                         load_btn = gr.Button("加载样品光谱（如 S001 德州优质麦粉）",
-                                             variant="secondary", size="lg")
+                                             variant="secondary", size="lg",
+                                             elem_classes=["action-btn"])
                         detect_btn = gr.Button("LGAKNet 智能检测",
-                                               variant="primary", size="lg")
+                                               variant="primary", size="lg",
+                                               elem_classes=["action-btn"])
                         scan_status = gr.Markdown("尚未加载样品光谱。")
                 with gr.Column(scale=7, min_width=560):
                     with gr.Group(elem_classes=["qc-card"]):
@@ -406,7 +439,8 @@ with gr.Blocks(title="智麦鲜酵 · Vis-NIR 与 LGAKNet 智能监测系统") a
                         yeast_slider = gr.Slider(0.5, 3.0, value=1.5, step=0.1,
                                                  label="酵母比例 (%)")
                         ferment_btn = gr.Button("启动发酵动态推演",
-                                                variant="primary", size="lg")
+                                                variant="primary", size="lg",
+                                                elem_classes=["action-btn"])
                         flour_chip = gr.HTML(flour_chip_html({}))
                 with gr.Column(scale=8, min_width=560):
                     with gr.Group(elem_classes=["qc-card"]):
@@ -437,5 +471,6 @@ with gr.Blocks(title="智麦鲜酵 · Vis-NIR 与 LGAKNet 智能监测系统") a
 
 
 if __name__ == "__main__":
-    demo.launch(css=CSS, server_name="127.0.0.1", server_port=7860,
+    demo.launch(css=CSS, theme=gr.themes.Default(),
+                server_name="127.0.0.1", server_port=7860,
                 show_error=True, inbrowser=True)
