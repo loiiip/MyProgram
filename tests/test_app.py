@@ -171,6 +171,20 @@ class TestUIStatics(unittest.TestCase):
         self.assertNotIn("#0b1020", app.CSS)
         self.assertIn(".image-frame", app.CSS)
 
+    def test_title_animated_gradient(self):
+        """回归：标题栏必须为动态渐变（渐变动画 + 流光扫过）"""
+        self.assertIn("@keyframes titleGradient", app.CSS)
+        self.assertIn("animation: titleGradient", app.CSS)
+        self.assertIn("background-size: 300% 300%", app.CSS)
+        self.assertIn("titleShine", app.CSS)
+
+    def test_buttons_prominent(self):
+        """回归：操作按钮必须使用 action-btn 立体样式"""
+        with open(os.path.join(PROJECT_ROOT, "app.py"), encoding="utf-8") as f:
+            src = f.read()
+        self.assertGreaterEqual(src.count('elem_classes=["action-btn"]'), 3)
+        self.assertIn(".action-btn", app.CSS)
+
     def test_bat_points_to_conda_env(self):
         with open(os.path.join(PROJECT_ROOT, "启动大屏.bat"), encoding="utf-8") as f:
             bat = f.read()

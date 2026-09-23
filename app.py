@@ -195,10 +195,29 @@ body, .gradio-container {
   padding: 18px 20px; box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
 }
 .qc-page-title {
-  background: linear-gradient(120deg, #16a34a 0%, #0d9488 100%);
+  background: linear-gradient(120deg, #16a34a, #0d9488, #22c55e, #0f766e, #16a34a);
+  background-size: 300% 300%;
+  animation: titleGradient 12s ease infinite;
   border-radius: 20px; padding: 26px 30px; color: #fff;
   box-shadow: 0 12px 32px rgba(22, 163, 74, 0.25);
+  position: relative; overflow: hidden;
 }
+@keyframes titleGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.qc-page-title::after {
+  content: ""; position: absolute; top: 0; left: -60%;
+  width: 40%; height: 100%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  animation: titleShine 4.5s ease-in-out infinite;
+}
+@keyframes titleShine {
+  0% { left: -60%; }
+  60%, 100% { left: 130%; }
+}
+.qc-page-title h1, .qc-page-title p { position: relative; z-index: 1; }
 .qc-page-title h1 { margin: 0 0 6px; font-size: 26px; font-weight: 800; letter-spacing: 1px; }
 .qc-page-title p { margin: 0; opacity: 0.92; font-size: 14px; }
 .qc-section-tag {
