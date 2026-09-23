@@ -186,15 +186,7 @@ class TestUIStatics(unittest.TestCase):
         self.assertIn(".action-btn", app.CSS)
         self.assertIn("rotateX", app.CSS)            # 悬停 3D 翻转
         self.assertIn("@keyframes btnPulse", app.CSS)  # 主按钮呼吸光环
-
-    def test_cursor_glow(self):
-        """回归：鼠标光标必须带跟随光晕（CSS 样式 + JS 注入）"""
-        self.assertIn("#cursor-glow", app.CSS)
-        self.assertIn("radial-gradient", app.CSS)
-        self.assertIn("cursor-glow", app.CURSOR_GLOW_HEAD)
-        with open(os.path.join(PROJECT_ROOT, "app.py"), encoding="utf-8") as f:
-            src = f.read()
-        self.assertIn("head=CURSOR_GLOW_HEAD", src)
+        self.assertNotIn("cursor-glow", app.CSS)       # 已回滚：无光标光晕
 
     def test_bat_points_to_conda_env(self):
         with open(os.path.join(PROJECT_ROOT, "启动大屏.bat"), encoding="utf-8") as f:
