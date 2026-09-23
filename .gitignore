@@ -9,3 +9,5 @@ test/
 *.log
 *.err
 yolov8n.pt
+tools/
+
