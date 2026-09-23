@@ -186,6 +186,8 @@ class TestUIStatics(unittest.TestCase):
         self.assertIn(".action-btn", app.CSS)
         self.assertIn("rotateX", app.CSS)            # 悬停 3D 翻转
         self.assertIn("@keyframes btnPulse", app.CSS)  # 主按钮呼吸光环
+        self.assertIn("0 0 24px", app.CSS)           # 悬停绿色光晕
+        self.assertIn("0 0 48px", app.CSS)           # 悬停淡白外圈光晕
 
     def test_bat_points_to_conda_env(self):
         with open(os.path.join(PROJECT_ROOT, "启动大屏.bat"), encoding="utf-8") as f:

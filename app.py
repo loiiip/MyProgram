@@ -277,6 +277,8 @@ body, .gradio-container {
   transform: perspective(500px) rotateX(12deg) translateY(-3px) !important;
   box-shadow: 0 9px 0 #15803d,
               0 20px 30px rgba(22, 163, 74, 0.38),
+              0 0 24px rgba(74, 222, 128, 0.75),
+              0 0 48px rgba(220, 252, 231, 0.9),
               inset 0 2px 2px rgba(255, 255, 255, 0.45) !important;
   filter: brightness(1.06) !important;
 }
@@ -305,6 +307,8 @@ button.action-btn.secondary, .action-btn.secondary {
 button.action-btn.secondary:hover, .action-btn.secondary:hover {
   box-shadow: 0 9px 0 #bbf7d0,
               0 20px 30px rgba(22, 163, 74, 0.22),
+              0 0 24px rgba(134, 239, 172, 0.65),
+              0 0 48px rgba(240, 253, 244, 0.95),
               inset 0 2px 2px rgba(255, 255, 255, 0.9) !important;
 }
 button.action-btn.secondary:active, .action-btn.secondary:active {
