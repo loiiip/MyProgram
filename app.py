@@ -262,27 +262,54 @@ body, .gradio-container {
 }
 .image-frame img { border-radius: 12px !important; background: #ffffff !important; }
 
-/* 左侧操作按钮：突出、圆滑、有按压感 */
+/* 操作按钮：3D 立体按键效果 */
 .action-btn {
   border-radius: 999px !important;
   font-size: 15px !important;
   font-weight: 700 !important;
-  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  transform-style: preserve-3d;
+  box-shadow: 0 6px 0 #15803d,
+              0 14px 22px rgba(22, 163, 74, 0.30),
+              inset 0 2px 2px rgba(255, 255, 255, 0.45) !important;
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease !important;
 }
 .action-btn:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 10px 22px rgba(22, 163, 74, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
-  filter: brightness(1.05) !important;
+  transform: perspective(500px) rotateX(12deg) translateY(-3px) !important;
+  box-shadow: 0 9px 0 #15803d,
+              0 20px 30px rgba(22, 163, 74, 0.38),
+              inset 0 2px 2px rgba(255, 255, 255, 0.45) !important;
+  filter: brightness(1.06) !important;
 }
 .action-btn:active {
-  transform: translateY(0) scale(0.98) !important;
-  box-shadow: 0 3px 8px rgba(22, 163, 74, 0.25) !important;
+  transform: translateY(5px) !important;
+  box-shadow: 0 1px 0 #15803d,
+              0 5px 10px rgba(22, 163, 74, 0.25) !important;
+}
+.action-btn.primary, button.primary.action-btn {
+  animation: btnPulse 2.2s ease-out infinite;
+}
+@keyframes btnPulse {
+  0%, 100% { box-shadow: 0 6px 0 #15803d, 0 14px 22px rgba(22, 163, 74, 0.30),
+             0 0 0 0 rgba(34, 197, 94, 0.45), inset 0 2px 2px rgba(255, 255, 255, 0.45); }
+  50% { box-shadow: 0 6px 0 #15803d, 0 14px 22px rgba(22, 163, 74, 0.30),
+        0 0 0 12px rgba(34, 197, 94, 0), inset 0 2px 2px rgba(255, 255, 255, 0.45); }
 }
 button.action-btn.secondary, .action-btn.secondary {
   background: #ffffff !important;
   color: #15803d !important;
   border: 2px solid #16a34a !important;
+  box-shadow: 0 6px 0 #bbf7d0,
+              0 14px 22px rgba(22, 163, 74, 0.18),
+              inset 0 2px 2px rgba(255, 255, 255, 0.9) !important;
+}
+button.action-btn.secondary:hover, .action-btn.secondary:hover {
+  box-shadow: 0 9px 0 #bbf7d0,
+              0 20px 30px rgba(22, 163, 74, 0.22),
+              inset 0 2px 2px rgba(255, 255, 255, 0.9) !important;
+}
+button.action-btn.secondary:active, .action-btn.secondary:active {
+  box-shadow: 0 1px 0 #bbf7d0,
+              0 5px 10px rgba(22, 163, 74, 0.15) !important;
 }
 """
 

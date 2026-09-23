@@ -179,11 +179,13 @@ class TestUIStatics(unittest.TestCase):
         self.assertIn("titleShine", app.CSS)
 
     def test_buttons_prominent(self):
-        """回归：操作按钮必须使用 action-btn 立体样式"""
+        """回归：操作按钮必须使用 action-btn 3D 立体样式"""
         with open(os.path.join(PROJECT_ROOT, "app.py"), encoding="utf-8") as f:
             src = f.read()
         self.assertGreaterEqual(src.count('elem_classes=["action-btn"]'), 3)
         self.assertIn(".action-btn", app.CSS)
+        self.assertIn("rotateX", app.CSS)            # 悬停 3D 翻转
+        self.assertIn("@keyframes btnPulse", app.CSS)  # 主按钮呼吸光环
 
     def test_bat_points_to_conda_env(self):
         with open(os.path.join(PROJECT_ROOT, "启动大屏.bat"), encoding="utf-8") as f:
