@@ -277,8 +277,6 @@ body, .gradio-container {
   transform: perspective(500px) rotateX(12deg) translateY(-3px) !important;
   box-shadow: 0 9px 0 #15803d,
               0 20px 30px rgba(22, 163, 74, 0.38),
-              0 0 24px rgba(74, 222, 128, 0.75),
-              0 0 48px rgba(220, 252, 231, 0.9),
               inset 0 2px 2px rgba(255, 255, 255, 0.45) !important;
   filter: brightness(1.06) !important;
 }
@@ -307,14 +305,54 @@ button.action-btn.secondary, .action-btn.secondary {
 button.action-btn.secondary:hover, .action-btn.secondary:hover {
   box-shadow: 0 9px 0 #bbf7d0,
               0 20px 30px rgba(22, 163, 74, 0.22),
-              0 0 24px rgba(134, 239, 172, 0.65),
-              0 0 48px rgba(240, 253, 244, 0.95),
               inset 0 2px 2px rgba(255, 255, 255, 0.9) !important;
 }
 button.action-btn.secondary:active, .action-btn.secondary:active {
   box-shadow: 0 1px 0 #bbf7d0,
               0 5px 10px rgba(22, 163, 74, 0.15) !important;
 }
+
+/* 鼠标光标跟随光晕 */
+#cursor-glow {
+  position: fixed; top: 0; left: 0; width: 160px; height: 160px;
+  border-radius: 50%; pointer-events: none; z-index: 9999;
+  opacity: 0; transition: opacity 0.4s ease;
+  background: radial-gradient(circle,
+    rgba(134, 239, 172, 0.32) 0%,
+    rgba(187, 247, 208, 0.16) 45%,
+    rgba(220, 252, 231, 0) 70%);
+}
+"""
+
+CURSOR_GLOW_HEAD = """
+<script>
+(function () {
+  function init() {
+    if (document.getElementById("cursor-glow")) return;
+    var glow = document.createElement("div");
+    glow.id = "cursor-glow";
+    document.body.appendChild(glow);
+    var tx = window.innerWidth / 2, ty = window.innerHeight / 2, x = tx, y = ty, active = false;
+    window.addEventListener("mousemove", function (e) {
+      tx = e.clientX; ty = e.clientY;
+      if (!active) { active = true; glow.style.opacity = "1"; }
+    });
+    document.documentElement.addEventListener("mouseleave", function () {
+      active = false; glow.style.opacity = "0";
+    });
+    (function loop() {
+      x += (tx - x) * 0.16; y += (ty - y) * 0.16;
+      glow.style.transform = "translate(" + (x - 80) + "px," + (y - 80) + "px)";
+      requestAnimationFrame(loop);
+    })();
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
 """
 
 HEADER_HTML = """
@@ -523,4 +561,4 @@ with gr.Blocks(title="智麦鲜酵 · Vis-NIR 与 LGAKNet 智能监测系统") a
 if __name__ == "__main__":
     demo.launch(css=CSS, theme=gr.themes.Default(),
                 server_name="127.0.0.1", server_port=7860,
-                show_error=True, inbrowser=True)
+                show_error=True, inbrowser=True, head=CURSOR_GLOW_HEAD)
