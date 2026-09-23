@@ -1,0 +1,13 @@
+train: ./train/images
+val: ./valid/images
+test: ./test/images
+
+nc: 3
+names: ['bad seed', 'healthy seed', 'impurity']
+
+roboflow:
+  workspace: wheat-yolo
+  project: wheat-health
+  version: 5
+  license: Private
+  url: https://app.roboflow.com/wheat-yolo/wheat-health/5

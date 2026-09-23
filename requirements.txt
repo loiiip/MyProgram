@@ -1,0 +1,20 @@
+# 小麦籽粒缺陷与杂质智能分选质检大屏 · 运行环境依赖
+# 当前环境：Conda env "food_defect"（Python 3.10.21，已全部安装完毕，无需重装）
+#
+# 如需在新机器上重建环境：
+#   conda create -n food_defect python=3.10 -y
+#   conda activate food_defect
+#   pip install -r requirements.txt
+
+gradio==6.27.0
+gradio_client==2.7.0
+ultralytics==8.4.144
+opencv-python==5.0.0.93
+numpy==2.2.6
+pillow==12.3.0
+scikit-learn
+matplotlib
+# torch：当前环境为 CUDA 版（RTX 5060 Laptop GPU，CUDA 可用）
+#   实际版本：torch 2.11.0+cu128 / torchvision 0.26.0+cu128
+# 有 NVIDIA 显卡（推荐，pip 会自动匹配）：
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128

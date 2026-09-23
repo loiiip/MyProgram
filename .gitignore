@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.vscode/
+.workbuddy/
+runs/
+train/
+valid/
+test/
+*.log
+*.err
+yolov8n.pt

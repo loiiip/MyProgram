@@ -1,0 +1,315 @@
+import cv2
+import numpy as np
+import gradio as gr
+from ultralytics import YOLO
+
+# 1. 加载 80 轮正式训练权重
+from pathlib import Path
+
+# 自动获取当前 app.py 所在的文件夹路径，杜绝任何电脑上的路径报错
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = str(BASE_DIR / "weights" / "best.pt")
+
+model = YOLO(MODEL_PATH)
+
+# 2. 三级置信度分流阈值常量
+CONFIRM_THRES = 0.45   # 坏粒置信度 >= 0.45 → 确诊缺陷（红框，AI 直接判定）
+SUSPECT_THRES = 0.20   # 0.20 <= 坏粒置信度 < 0.45 → 疑似缺陷（橙黄虚线框，转人工逐粒复核）
+IMPURITY_THRES = 0.50  # 杂质严格门槛：仅置信度 >= 0.5 才计为杂质，防止阴影/麦粒被误判为杂质
+
+# 标注配色（RGB，与 Gradio 返回的 numpy 图像通道顺序一致）
+COLOR_CONFIRMED = (220, 53, 69)    # 确诊缺陷：红
+COLOR_SUSPECT = (255, 191, 0)      # 疑似缺陷：橙黄
+COLOR_HEALTHY = (40, 167, 69)      # 健全麦粒：绿
+COLOR_IMPURITY = (111, 66, 193)    # 机械杂质：紫
+
+
+def draw_dashed_box(img, x1, y1, x2, y2, color, thickness=2, dash=10, gap=6):
+    """在图像上绘制虚线矩形框（用于标记疑似缺陷粒）"""
+    def dline(pa, pb):
+        dist = int(np.hypot(pb[0] - pa[0], pb[1] - pa[1]))
+        if dist == 0:
+            return
+        dx, dy = (pb[0] - pa[0]) / dist, (pb[1] - pa[1]) / dist
+        for i in range(0, dist, dash + gap):
+            end = min(i + dash, dist)
+            cv2.line(img,
+                     (int(pa[0] + dx * i), int(pa[1] + dy * i)),
+                     (int(pa[0] + dx * end), int(pa[1] + dy * end)),
+                     color, thickness)
+
+    dline((x1, y1), (x2, y1))
+    dline((x2, y1), (x2, y2))
+    dline((x2, y2), (x1, y2))
+    dline((x1, y2), (x1, y1))
+
+
+def grade_by_rate(defect_rate, total_seeds):
+    """依照国家粮食标准 GB 1351 按不完善粒缺陷率定级"""
+    if total_seeds == 0:
+        return "画面中未识别到明确的小麦籽粒"
+    if defect_rate < 4.0:
+        return "【一等小麦】（符合优质粮收购标准，不完善粒 < 4.0%）"
+    elif defect_rate <= 8.0:
+        return "【二等小麦】（符合标准品收购标准，不完善粒 ≤ 8.0%）"
+    else:
+        return "【超标待筛】（缺陷率偏高，建议启动工业气动阀二次风选）"
+
+
+# ---------- 复核状态工具函数 ----------
+
+def build_gallery_items(state):
+    """根据复核判定结果重建画廊（切片 + 判定状态字幕）"""
+    items = []
+    for i, (crop, conf) in enumerate(zip(state["crops"], state["confs"])):
+        v = state["verdicts"][i]
+        tag = "✅ 人工判健全" if v is False else ("❌ 人工判缺陷" if v is True else "🟡 待复核")
+        items.append((crop, f"#{i + 1} conf={conf:.2f} | {tag}"))
+    return items
+
+
+def progress_text(state):
+    """生成复核进度提示文本"""
+    total = len(state["verdicts"])
+    done = sum(1 for v in state["verdicts"] if v is not None)
+    sel = state.get("selected")
+    sel_txt = f"，当前选中切片：#{sel + 1}" if (sel is not None and total > 0) else ""
+    return f"🔍 复核进度：已核 {done} / 共 {total} 粒{sel_txt}"
+
+
+def all_reviewed(state):
+    """判断是否全部疑似粒均已完成人工判定"""
+    return len(state["verdicts"]) > 0 and all(v is not None for v in state["verdicts"])
+
+
+def build_final_report(state):
+    """全部复核完成后，按人工判定结果生成最终 GB 1351 定级报告"""
+    healthy_ai = state["healthy"]          # AI 判定的健全粒
+    confirmed = state["confirmed"]         # AI 确诊缺陷粒
+    impurity = state["impurity"]           # 机械杂质
+    verdicts = state["verdicts"]
+
+    manual_bad = sum(1 for v in verdicts if v is True)     # 人工判缺陷
+    manual_good = sum(1 for v in verdicts if v is False)   # 人工判健全（误判纠正）
+
+    final_bad = confirmed + manual_bad
+    final_healthy = healthy_ai + manual_good
+    total_seeds = final_bad + final_healthy
+    defect_rate = (final_bad / total_seeds * 100) if total_seeds > 0 else 0.0
+    grade = grade_by_rate(defect_rate, total_seeds)
+
+    return f"""
+✅ 人机协同复核完成 · 最终定级报告 (GB 1351)
+=====================================
+• AI 判定健全粒          : {healthy_ai} 粒
+• AI 确诊缺陷粒          : {confirmed} 粒
+• 疑似粒 → 人工判缺陷    : {manual_bad} 粒
+• 疑似粒 → 人工判健全    : {manual_good} 粒（误判已纠正）
+• 机械杂质               : {impurity} 处
+=====================================
+• 样品总籽粒数           : {total_seeds} 粒
+• 最终缺陷粒合计         : {final_bad} 粒
+• 最终综合缺陷率         : {defect_rate:.2f}%
+• 最终定级结论           : {grade}
+=====================================
+* 注：本结论融合 AI 初筛与质检员逐粒人工判定，
+  缺陷率按人工复核后的精确口径计算
+"""
+
+
+# 3. 核心质检分析业务逻辑（AI 初筛）
+def predict_wheat(image, conf_threshold):
+    if image is None:
+        return None, "⚠️ 请先上传一张小麦籽粒微距图像！", [], "", {}, ""
+
+    # 推理置信度下限由前端滑块传入（默认 0.45）；如需捕获 0.20~0.45 的疑似粒，请将滑块调低至 0.20；
+    # agnostic_nms=True 强制启用全局（跨类别）非极大值抑制，严禁同一麦粒出现多个重叠框
+    results = model.predict(source=image, conf=conf_threshold, agnostic_nms=True)
+    boxes = results[0].boxes
+
+    annotated = image.copy()
+    h, w = annotated.shape[:2]
+
+    healthy_count = 0
+    confirmed_count = 0   # 确诊缺陷粒
+    impurity_count = 0
+    suspect_crops = []    # 疑似缺陷粒微距切片（供人工逐粒复核）
+    suspect_confs = []    # 每张切片对应的模型置信度
+
+    for box in boxes:
+        cls_name = model.names[int(box.cls)]
+        conf = float(box.conf)
+        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+        # 坐标裁剪到图像边界内，防止切片越界
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(w - 1, x2), min(h - 1, y2)
+
+        if cls_name == 'bad seed':
+            if conf >= CONFIRM_THRES:
+                # 确诊缺陷：红色实线框
+                confirmed_count += 1
+                cv2.rectangle(annotated, (x1, y1), (x2, y2), COLOR_CONFIRMED, 2)
+                cv2.putText(annotated, f"bad {conf:.2f}", (x1, max(15, y1 - 6)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_CONFIRMED, 2)
+            else:
+                # 疑似缺陷：橙黄色虚线框，并自动裁剪切片送入复核画廊
+                draw_dashed_box(annotated, x1, y1, x2, y2, COLOR_SUSPECT)
+                cv2.putText(annotated, f"suspect {conf:.2f}", (x1, max(15, y1 - 6)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_SUSPECT, 2)
+                suspect_crops.append(image[y1:y2, x1:x2])
+                suspect_confs.append(conf)
+        elif cls_name == 'healthy seed':
+            healthy_count += 1
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), COLOR_HEALTHY, 2)
+            cv2.putText(annotated, f"healthy {conf:.2f}", (x1, max(15, y1 - 6)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_HEALTHY, 2)
+        elif cls_name == 'impurity':
+            # 杂质严格门槛：低于 0.5 的杂质直接过滤（防阴影/麦粒误判），不计数也不画框
+            if conf < IMPURITY_THRES:
+                continue
+            impurity_count += 1
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), COLOR_IMPURITY, 2)
+            cv2.putText(annotated, f"impurity {conf:.2f}", (x1, max(15, y1 - 6)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_IMPURITY, 2)
+
+    suspect_count = len(suspect_crops)
+    total_seeds = healthy_count + confirmed_count + suspect_count
+
+    # 初筛定级：仅以确诊缺陷粒参与缺陷率计算，疑似粒待人工复核
+    pure_total = healthy_count + confirmed_count
+    defect_rate = (confirmed_count / pure_total * 100) if pure_total > 0 else 0.0
+    grade = grade_by_rate(defect_rate, pure_total)
+
+    report_text = f"""
+🌾 小麦籽粒智能质检初筛报告 (GB 1351)
+=====================================
+• 健全麦粒（Healthy）   : {healthy_count} 粒
+• 确诊缺陷数（Bad）     : {confirmed_count} 粒
+• 疑似待核数（Suspect） : {suspect_count} 粒
+• 机械杂质（Impurity）  : {impurity_count} 处
+=====================================
+• 样品总籽粒数          : {total_seeds} 粒
+• 当前确诊缺陷率        : {defect_rate:.2f}%
+• AI 初筛定级建议       : {grade}
+=====================================
+* 注：橙黄虚线框为疑似缺陷粒，请质检员在下方
+  【人工复检工作区】点击切片逐一肉眼核对判定
+"""
+
+    # 初始化复核状态：crops/confs 为切片与置信度，verdicts=None 表示待复核
+    state = {
+        "healthy": healthy_count,
+        "confirmed": confirmed_count,
+        "impurity": impurity_count,
+        "crops": suspect_crops,
+        "confs": suspect_confs,
+        "verdicts": [None] * suspect_count,
+        "selected": None,
+    }
+    gallery_items = build_gallery_items(state)
+    status = progress_text(state) if suspect_count > 0 else "✅ 本次检测无疑似粒，无需人工复核"
+    return annotated, report_text, gallery_items, status, state, ""
+
+
+# 4. 人工复核交互逻辑
+def on_select_crop(state, evt: gr.SelectData):
+    """质检员在画廊中点击选中一张疑似切片"""
+    if not state or not state["verdicts"]:
+        return state, "⚠️ 请先执行智能质检分析"
+    state["selected"] = evt.index
+    return state, progress_text(state)
+
+
+def mark_verdict(state, is_bad):
+    """对当前选中切片进行人工判定：True=缺陷 / False=健全"""
+    if not state or not state["verdicts"]:
+        return gr.update(), "⚠️ 请先执行智能质检分析", gr.update(), state
+    if state["selected"] is None:
+        return gr.update(), "⚠️ 请先在画廊中点击选中一张疑似切片", gr.update(), state
+
+    state["verdicts"][state["selected"]] = is_bad
+    status = progress_text(state)
+    items = build_gallery_items(state)
+    # 全部复核完成 → 自动生成最终定级报告
+    final = build_final_report(state) if all_reviewed(state) else gr.update()
+    return items, status, final, state
+
+
+def mark_rest_as_bad(state):
+    """快捷操作：剩余未核疑似粒全部按缺陷计（最严口径，粮食安全优先）"""
+    if not state or not state["verdicts"]:
+        return gr.update(), "⚠️ 请先执行智能质检分析", gr.update(), state
+
+    state["verdicts"] = [True if v is None else v for v in state["verdicts"]]
+    status = progress_text(state)
+    items = build_gallery_items(state)
+    final = build_final_report(state) if all_reviewed(state) else gr.update()
+    return items, status, final, state
+
+
+# 5. 构建 Gradio 前端页面
+with gr.Blocks(title="小麦质量智能检测系统") as demo:
+    gr.Markdown("# 🌾 小麦籽粒缺陷与杂质智能分选质检大屏")
+    gr.Markdown("**全球校园人工智能算法精英大赛 (AIC) | AI 初筛 + 疑似目标人机协同复核 工业级质检流程**")
+
+    with gr.Row():
+        # 左侧：样品上传与初筛控制区
+        with gr.Column():
+            input_img = gr.Image(type="numpy", label="📷 上传小麦微距样品图")
+            conf_slider = gr.Slider(minimum=0.1, maximum=0.9, value=0.45, step=0.05,
+                                    label="🎚️ 目标检测置信度阈值 (Confidence)")
+            detect_btn = gr.Button("🚀 启动智能质检分析", variant="primary", size="lg")
+
+        # 右侧：AI 初筛结果展示区
+        with gr.Column():
+            output_img = gr.Image(label="🎯 缺陷定位与标注渲染图（红框=确诊 / 橙黄虚线=疑似）")
+            output_report = gr.Textbox(label="📋 AI 初筛品质评定结果", lines=12)
+
+    # 人工复检工作区：疑似缺陷粒切片画廊 + 逐粒人工判定
+    gr.Markdown("---\n## 🔍 人工复检工作区（点击画廊切片选中 → 逐粒判定好粒/坏粒）")
+    review_status = gr.Markdown("等待智能质检分析…")
+    suspect_gallery = gr.Gallery(
+        label="🟡 疑似微距切片画廊（点击选中后使用下方按钮判定）",
+        columns=6, height=240, object_fit="contain", interactive=True
+    )
+    with gr.Row():
+        good_btn = gr.Button("✅ 判为健全粒", variant="secondary", size="lg")
+        bad_btn = gr.Button("❌ 判为缺陷粒", variant="secondary", size="lg")
+        rest_bad_btn = gr.Button("⚡ 剩余疑似粒全部按缺陷计（最严口径）", variant="stop", size="lg")
+    final_report = gr.Textbox(label="🏁 人机协同复核最终定级报告", lines=14)
+
+    # 跨组件传递初筛统计与复核判定的隐藏状态
+    stat_state = gr.State({})
+
+    # 初筛按钮事件绑定
+    detect_btn.click(
+        fn=predict_wheat,
+        inputs=[input_img, conf_slider],
+        outputs=[output_img, output_report, suspect_gallery, review_status, stat_state, final_report]
+    )
+    # 画廊切片选中事件绑定
+    suspect_gallery.select(
+        fn=on_select_crop,
+        inputs=[stat_state],
+        outputs=[stat_state, review_status]
+    )
+    # 逐粒人工判定事件绑定
+    good_btn.click(
+        fn=lambda s: mark_verdict(s, False),
+        inputs=[stat_state],
+        outputs=[suspect_gallery, review_status, final_report, stat_state]
+    )
+    bad_btn.click(
+        fn=lambda s: mark_verdict(s, True),
+        inputs=[stat_state],
+        outputs=[suspect_gallery, review_status, final_report, stat_state]
+    )
+    # 最严口径快捷按钮事件绑定
+    rest_bad_btn.click(
+        fn=mark_rest_as_bad,
+        inputs=[stat_state],
+        outputs=[suspect_gallery, review_status, final_report, stat_state]
+    )
+
+if __name__ == "__main__":
+    demo.launch(inbrowser=True)
