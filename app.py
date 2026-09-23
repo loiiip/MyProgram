@@ -437,4 +437,5 @@ with gr.Blocks(title="智麦鲜酵 · Vis-NIR 与 LGAKNet 智能监测系统") a
 
 
 if __name__ == "__main__":
-    demo.launch(css=CSS, server_name="127.0.0.1", server_port=7860, show_error=True)
+    demo.launch(css=CSS, server_name="127.0.0.1", server_port=7860,
+                show_error=True, inbrowser=True)
